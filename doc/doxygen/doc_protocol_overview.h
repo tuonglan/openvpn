@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2010-2018 Fox Crypto B.V. <openvpn@fox-it.com>
+ *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -118,6 +118,8 @@
  * parts:
  *
  *  - local \c session_id (random 64 bit value to identify TLS session).
+ *      (the tls-server side uses a HMAC of the client to create a pseudo
+ *       random number for a SYN Cookie like approach)
  *  - HMAC signature of entire encapsulation header for HMAC firewall
  *    [only if \c --tls-auth is specified] (usually 16 or 20 bytes).
  *  - packet-id for replay protection (4 or 8 bytes, includes sequence

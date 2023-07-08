@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -36,8 +36,6 @@
 #include "otime.h"
 
 #include "memdbg.h"
-
-#if P2MP
 
 static void
 ifconfig_pool_entry_free(struct ifconfig_pool_entry *ipe, bool hard)
@@ -610,7 +608,6 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
         struct gc_arena gc = gc_new();
         struct buffer in = alloc_buf_gc(256, &gc);
         char *cn_buf, *ip_buf, *ip6_buf;
-        int line = 0;
 
         ALLOC_ARRAY_CLEAR_GC(cn_buf, char, buf_size, &gc);
         ALLOC_ARRAY_CLEAR_GC(ip_buf, char, buf_size, &gc);
@@ -623,7 +620,6 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
             {
                 break;
             }
-            ++line;
             if (!BLEN(&in))
             {
                 continue;
@@ -724,7 +720,7 @@ ifconfig_pool_read(struct ifconfig_pool_persist *persist, struct ifconfig_pool *
              */
             if (h >= 0)
             {
-                msg(M_INFO, "succeeded -> ifconfig_pool_set(hand=%d)",h);
+                msg(M_INFO, "succeeded -> ifconfig_pool_set(hand=%d)", h);
                 ifconfig_pool_set(pool, cn_buf, h, persist->fixed);
             }
         }
@@ -835,5 +831,3 @@ ifconfig_pool_test(in_addr_t start, in_addr_t end)
 }
 
 #endif /* ifdef IFCONFIG_POOL_TEST */
-
-#endif /* if P2MP */

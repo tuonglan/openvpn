@@ -1,6 +1,436 @@
+Overview of changes in 2.6.5
+============================
+
+User visible changes
+--------------------
+- tapctl (windows): generate driver-specific names (if using tapctl to
+  create additional tap/wintun/dco devices, and not using --name)
+  (Github #337)
+
+- interactive service (windows): do not force target desktop for
+  openvpn.exe - this has no impact for normal use, but enables running
+  of OpenVPN in a scripted way when no user is logged on (for example,
+  via task scheduler) (Github OpenVPN/openvpn-gui#626)
+
+Bug fixes
+---------
+- fix use-after-free with EVP_CIPHER_free
+
+- fix building with MSVC from release tarball (missing version.m4.in)
+
+- dco-win: repair use of --dev-node to select specific DCO drivers
+  (Github #336)
+
+- fix missing malloc() return check in dco_freebsd.c
+
+- windows: correctly handle unicode names for "exit event"
+
+- fix memleak in client-connect example plugin
+
+- fix fortify build problem in keying-material-exporter-demo plugin
+
+- fix memleak in dco_linux.c/dco_get_peer_stats_multi() - this will
+  leak a small amount of memory every 15s on DCO enabled servers,
+  leading to noticeable memory waste for long-running processes.
+
+- dco_linux.c: properly close dco version file (fd leak)
+
+
+Overview of changes in 2.6.4
+============================
+
+User visible changes
+--------------------
+- License amendment: all NEW commits fall under a modified license that
+  explicitly permits linking with Apache2 libraries (mbedTLS, OpenSSL) -
+  see COPYING for details.  Existing code will fall under the new license
+  as soon as all contributors have agreed to the change - work ongoing.
+
+New features
+------------
+- DCO: support kernel-triggered key rotation (avoid IV reuse after 2^32
+  packets).  This is the userland side, accepting a message from kernel,
+  and initiating a TLS renegotiation.  As of release, only implemented in
+  FreeBSD kernel.
+
+Bug fixes
+---------
+- fix pkcs#11 usage with OpenSSL 3.x and PSS signing (Github #323)
+
+- fix compile error on TARGET_ANDROID
+
+- fix typo in help text
+
+- manpage updates (--topology)
+
+- encoding of non-ASCII windows error messages in log + management fixed
+  (use UTF8 "as for everything else", not ANSI codepages)  (Github #319)
+
+
+Overview of changes in 2.6.3
+============================
+
+New features
+------------
+- Windows: support setting DNS domain in configurations without DHCP
+  (typically wintun or windco drivers), see GH OpenVPN/openvpn#306.
+
+Bug fixes
+---------
+- fix possible crash with Linux client on reconnect on TLS errors
+  (needs either "--status file" or active management interface to trigger)
+
+- fix incorrect formatting in .rst documents
+
+- Windows .msi installer: ensure interactive service stays enabled after
+  silent reinstall, see GH OpenVPN/openvpn-build#348, #349 and #351
+
+- Windows installer: repair querying install path info for easyrsa-start.bat
+  on some Windows language versions, see GH OpenVPN/openvpn-build#352.
+
+- Windows DCO driver: use correct crypto library so it loads on x86,
+  see GH OpenVPN/ovpn-dco-win#43
+
+
+
+Overview of changes in 2.6.2
+============================
+
+New features
+------------
+- implement byte counter statistics for DCO Linux (p2mp server and client)
+
+- implement byte counter statistics for DCO Windows (client only)
+
+- '--dns server <n> address ...' now permits up to 8 v4 or v6 addresses
+
+- fix a few cases of possibly undefined behaviour detected by ASAN
+
+- add more unit tests for Windows cryptoapi interface
+
+
+Bug fixes
+---------
+- sending of AUTH_PENDING and INFO_PRE messages fixed (OpenVPN/openvpn#256)
+
+- Windows: do not treat "setting IPv6 interface metric failed" as fatal
+  error on "block-dns" install - this can happen if IPv6 is disabled on
+  the interface and is not harmful in itself (GH #294)
+
+- fix '--inactive' if DCO is in use
+  NOTE: on FreeBSD, this is not working yet (missing per-peer stats)
+
+- DCO-Linux: do not print errno on netlink errors (errno is not set by NL)
+
+- SOCKS client: improve error reporting on server disconnects
+
+- DCO-Linux: fix lockups due to netlink buffer overflows on high
+  client connect/disconnect activity.  See "User visible changes" for
+  more details of this.
+
+- fix some uses of the OpenSSL3 API for non-default providers
+  (enable use of quantum-crypto OpenSSL provider)
+
+- fix memory leak of approx. 1600 bytes per incoming initial TLS packet
+
+- fix bug when using ECDSA signatures with OpenSSL 3.0.x and pkcs11-helper
+  (data format conversion was not done properly)
+
+- fix 'make distcheck' - unexpected side effect of 'subdir-objects'
+
+- fix ASSERT() with dynamic tls-crypt and --tls-crypt-v2 (GH #272)
+
+
+User visible changes
+--------------------
+- print (kernel) DCO version on startup - helpful for getting a more
+  complete picture of the environment in use.
+
+- New control packets flow for data channel offloading on Linux.
+  2.6.2+ changes the way OpenVPN control packets are handled on
+  Linux when DCO is active, fixing the lockups observed with 2.6.0/2.6.1
+  under high client connect/disconnect activity.
+  This is an *INCOMPATIBLE* change and therefore an ovpn-dco kernel
+  module older than v0.2.20230323 (commit ID 726fdfe0fa21) will not
+  work anymore and must be upgraded.  The kernel module was renamed to
+  "ovpn-dco-v2.ko" in order to highlight this change and ensure that
+  users and userspace software could easily understand which version
+  is loaded.  Attempting to use the old ovpn-dco with 2.6.2+ will
+  lead to disabling DCO at runtime.
+
+- The ``client-pending-auth`` management command now requires also the
+  key id. The management version has been changed to 5 to indicate this change.
+
+- A client will now refuse a connection if pushed compression settings
+  will contradict the setting of ``allow-compression`` as this almost
+  always results in a non-working connection.
+
+
+Overview of changes in 2.6.1
+============================
+
+New features
+------------
+- Dynamic TLS Crypt
+  When both peers are OpenVPN 2.6.1+, OpenVPN will dynamically create
+  a tls-crypt key that is used for renegotiation. This ensure that only the
+  previously authenticated peer can do trigger renegotiation and complete
+  renegotiations.
+
+- CryptoAPI (Windows): support issuer name as a selector.
+  Certificate selection string can now specify a partial
+  issuer name string as "--cryptoapicert ISSUER:<string>" where
+  <string> is matched as a substring of the issuer (CA) name in
+  the certificate.
+
+
+User visible changes
+--------------------
+- on crypto initialization, move old "quite verbose" messages to --verb 4
+  and only print a more compact summary about crypto and timing parameters
+  by default
+
+- configure now enables DCO build by default on FreeBSD and Linux, which
+  brings in a default dependency for libnl-genl (for Linux distributions
+  that are too old to have this library, use "configure --disable-dco")
+
+- make "configure --help" output more consistent
+
+- CryptoAPI (Windows): remove support code for OpenSSL before 3.0.1
+  (this will not affect official OpenVPN for Windows installers, as they
+  will always be built with OpenSSL 3.0.x)
+
+- CryptoAPI (Windows): log the selected certificate's name
+
+- "configure" now uses "subdir-objects", for automake >= 1.16
+  (less warnings for recent-enough automake versions, will change
+  the way .o files are created)
+
+
+Bugfixes / minor improvements
+-----------------------------
+- fixed old IPv6 ifconfig race condition for FreeBSD 12.4 (trac #1226)
+
+- fix compile-time breakage related to DCO defines on FreeBSD 14
+
+- enforce minimum packet size for "--fragment" (avoid division by zero)
+
+- some alignment fixes to avoid unaligned memory accesses, which will
+  bring problems on some architectures (Sparc64, some ARM versions) -
+  found by USAN clang checker
+
+- windows source code fixes to reduce number of compile time warnings
+  (eventual goal is to be able to compile with -Werror on MinGW), mostly
+  related to signed/unsigned char * conversions, printf() format specifiers
+  and unused variables.
+
+- avoid endless loop on logging with --management + --verb 6+
+
+- build (but not run) unit tests on MinGW cross compiles, and run them
+  when building with GitHub Actions.
+
+- add unit test for parts of cryptoapi.c
+
+- add debug logging to help with diagnosing windows driver selection
+
+- disable DCO if proxy config is set via management interface
+
+- do not crash on Android if run without --management
+
+- improve documentation about cipher negotiation and OpenVPN3
+
+- for x86 windows builds, use proper calling conventions for dco-win
+  (__stdcall)
+
+- differentiate "dhcp-option ..." options into "needs an interface with
+  true DHCP service" (tap-windows) and "can also be installed by IPAPI
+  or service, and can be used on non-DHCP interfaces" (wintun, dco-win)
+
+- windows interactive service: fix possible double-free if "--block-dns"
+  installation fails due to "security products" interfering
+  (Github OpenVPN/openvpn#232)
+
+- "make dist": package ovpn_dco_freebsd.h to permit building from tarballs
+  on FreeBSD 14
+
+
+Overview of changes in 2.6.0, relative to 2.6_rc2
+=================================================
+
+(See below for changes in 2.6 relative to 2.5)
+
+New features
+------------
+- no new features relative to 2.6_rc2
+
+User-Visible Changes
+--------------------
+- no user-visible changes relative to 2.6_rc2
+
+Bugfixes / minor improvements
+-----------------------------
+- repair handling of "route already exists" errors for Linux/sitnl builds,
+  which would lead to erroneous attempts to remove routes later on, possibly
+  removing "non openvpn installed" routes.
+
+- repair error handling for Linux/iproute2 builds - this was ignoring
+  all errors on route installation, causing issues on route removal.
+
+- improve logging (errors and debug messages) for route handling on Windows
+
+- print warning if pkcs11-id or pkcs11-id-management options are used but
+  no pkcs11-providers has been selected
+
+- openvpnmsica: improve handling of win-dco driver (use MSM now)
+
+- for Linux/DCO builds, increase libnl buffer size to reduce propability
+  of ENOBUFS occurance if kernel-to-userland netlink queue overruns
+  (bandaid fix)
+
+- re-enable use of suid binaries in scripts run by OpenVPN - new
+  capability-handling code was too strict and cleared all capabilities,
+  breaking users' use of "sudo" (etc) in scripts (Github OpenVPN/openvpn#220).
+
+
+Overview of changes in 2.6_rc2
+==============================
+New features
+------------
+- ``remote-entry-get`` management command will now show enabled/disabled
+  status for each connection entry
+
+- report ``CONNECTED,ROUTE_ERROR`` to management GUI if connection to
+  server succeeds but not all routes can be installed (Windows and
+  Linux/Netlink only, so far)
+
+- add rate limiter for incoming "initial handshake packets", enabled by
+  default with a limit of 100 packets per 10 seconds.  New option
+  ``--connect-freq-initial`` to configure values.  This change makes
+  OpenVPN servers uninteresting as an UDP reflection DDoS engine.
+
+User-Visible Changes
+--------------------
+- OCC (options compatibility check) log messages are considered obsolete
+  and are only shown on loglevel 7 or higher now
+
+- copyright line has been updated in all files to "xxx-2023"
+
+- include peer-id=nn in multi prefix for DCO servers if loglevel is 7+
+  (helps with DCO debugging)
+
+Bugfixes / minor improvements
+-----------------------------
+- improve documentation on no-longer-supported options
+
+- reduce amount of log messages about "dco_update_keys: peer_id=-1"
+
+- undo FreeBSD "ipv6 ifconfig" workaround for FreeBSD 12.4 and up (Trac 1226)
+
+- fix signal handling issues where a SIGUSR1 "restart" signal could overwrite
+  a SIGTERM/SIGINT "please end!" signal already queued, making OpenVPN hard
+  to stop (Trac 311, Trac 639, GH issue #205)
+
+- fix signal handling issues on windows, where OpenVPN could not be
+  interrupted by ctrl-c when sleep()ing between connection attempts
+
+- use IPAPI for IPv6 route installation on Windows, if OpenVPN runs without
+  service pipe ("run as admin from cmd.exe")
+
+- fix spurious DCO log messages about "peer-id unknown to OpenVPN: -1"
+
+- on Windows, repair wintun buffer cleanup on program end
+
+
+Overview of changes in 2.6_rc1
+==============================
+
+New features
+------------
+Support unlimited number of connection entries and remote entries
+
+New management commands to enumerate and list remote entries
+    Use ``remote-entry-count`` and ``remote-entry-get``
+    commands from the management interface to get the number of
+    remote entries and the entries themselves.
+
+
+Bugfixes / minor improvements
+-----------------------------
+Improve DCO-related logging in many places.
+
+DCO/Linux robustness fixes.
+
+DCO/Linux TCP crashbug (recvfrom(-1) endless loop) worked around - root
+    cause has not been found, but the condition is detected and the 
+    offending client is removed, instead of crashing the server.
+
+Rename internal TLS state TM_UNTRUSTED to TM_INITIAL, always start new
+    peer handshake (new connect or renegotiation) in TM_INITIAL state.
+
+Upgrade Windows build environment to MSVC 2022
+
+Make management password check constant time
+
+Repair keepalive and mss setting in DCO peer-to-peer mode.
+
+Persist DCO client data channel traffic stats on restart (Windows only).
+
+Do not include auth-token in pulled option digest.
+
+Reduce default restart pause (--connect-retry) to 1 second.
+
+Deprecate NTLMv1 proxy auth method.
+
+Fix possible buffer-overrun in command line and ccd/ argument parsing.
+
+Fix memleak if creating deferred auth control files fails
+
+
+Overview of changes in 2.6_beta2
+================================
+
+New features
+------------
+Transport statistics (bytes in/out) for DCO environments
+    With DCO, OpenVPN userland will not see data packets and can not
+    count them, thus, no statistics.  This feature implements server-side
+    statistics for FreeBSD+DCO and client-side statistics for Windows+DCO,
+    Linux and FreeBSD client will follow.
+
+pkcs11-helper updates
+    improve shared library loading on Windows, so "copy .dll to application
+    directory" recipes should no longer be necessary for pkcs#11 providers
+
+Bugfixes / minor improvements
+-----------------------------
+- add proper documentation for tls-crypt-v2 metadata limits, and better
+  error messages when these are exceeded
+
+- trigger SIGUSR1 if dco_update_keys() fails - this is, when OpenVPN
+  userland and kernel side key handling gets out of sync, restart instance
+  to recover.
+
+- improve logging for DCO key update handling
+
+- ignore incoming client connects while server is being shutdown
+  (Github: OpenVPN/openvpn#189)
+
+- disable DCO for p2p modes with no crypto or --secret pre-shared key
+  (= everything that is not TLS)
+
+- fix endianness issues for TLS cookie handling and unit test
+
+
+
 Overview of changes in 2.6
 ==========================
 
+Project changes
+---------------
+
+We want to deprecate our old Trac bug tracking system.
+Please report any issues with this release in GitHub
+instead: https://github.com/OpenVPN/openvpn/issues
 
 New features
 ------------
@@ -9,11 +439,295 @@ Keying Material Exporters (RFC 5705) based key generation
     the RFC5705 based key material generation to the current custom
     OpenVPN PRF. This feature requires OpenSSL or mbed TLS 2.18+.
 
+Compatibility with OpenSSL in FIPS mode
+    OpenVPN will now work with OpenSSL in FIPS mode. Note, no effort
+    has been made to check or implement all the
+    requirements/recommendation of FIPS 140-2. This just allows OpenVPN
+    to be run on a system that be configured OpenSSL in FIPS mode.
+
+``mlock`` will now check if enough memlock-able memory has been reserved,
+    and if less than 100MB RAM are available, use setrlimit() to upgrade
+    the limit.  See Trac #1390.  Not available on OpenSolaris.
+
+Certificate pinning/verify peer fingerprint
+    The ``--peer-fingerprint`` option has been introduced to give users an
+    easy to use alternative to the ``tls-verify`` for matching the
+    fingerprint of the peer. The option takes use a number of allowed
+    SHA256 certificate fingerprints.
+
+    See the man page section "Small OpenVPN setup with peer-fingerprint"
+    for a tutorial on how to use this feature. This is also available online
+    under https://github.com/openvpn/openvpn/blob/master/doc/man-sections/example-fingerprint.rst
+
+TLS mode with self-signed certificates
+    When ``--peer-fingerprint`` is used, the ``--ca`` and ``--capath`` option
+    become optional. This allows for small OpenVPN setups without setting up
+    a PKI with Easy-RSA or similar software.
+
+Deferred auth support for scripts
+    The ``--auth-user-pass-verify`` script supports now deferred authentication.
+
+Pending auth support for plugins and scripts
+    Both auth plugin and script can now signal pending authentication to
+    the client when using deferred authentication. The new ``client-crresponse``
+    script option and ``OPENVPN_PLUGIN_CLIENT_CRRESPONSE`` plugin function can
+    be used to parse a client response to a ``CR_TEXT`` two factor challenge.
+
+    See ``sample/sample-scripts/totpauth.py`` for an example.
+
+Compatibility mode (``--compat-mode``)
+    The modernisation of defaults can impact the compatibility of OpenVPN 2.6.0
+    with older peers. The options ``--compat-mode`` allows UIs to provide users
+    with an easy way to still connect to older servers.
+
+OpenSSL 3.0 support
+    OpenSSL 3.0 has been added. Most of OpenSSL 3.0 changes are not user visible but
+    improve general compatibility with OpenSSL 3.0. ``--tls-cert-profile insecure``
+    has been added to allow selecting the lowest OpenSSL security level (not
+    recommended, use only if you must). OpenSSL 3.0 no longer supports the Blowfish
+    (and other deprecated) algorithm by default and the new option ``--providers``
+    allows loading the legacy provider to renable these algorithms.
+
+Optional ciphers in ``--data-ciphers``
+    Ciphers in ``--data-ciphers`` can now be prefixed with a ``?`` to mark
+    those as optional and only use them if the SSL library supports them.
+
+
+Improved ``--mssfix`` and ``--fragment`` calculation
+    The ``--mssfix`` and ``--fragment`` options now allow an optional :code:`mtu`
+    parameter to specify that different overhead for IPv4/IPv6 should taken into
+    account and the resulting size is specified as the total size of the VPN packets
+    including IP and UDP headers.
+
+Cookie based handshake for UDP server
+    Instead of allocating a connection for each client on the initial packet
+    OpenVPN server will now use an HMAC based cookie as its session id. This
+    way the server can verify it on completing the handshake without keeping
+    state. This eliminates the amplification and resource exhaustion attacks.
+    For tls-crypt-v2 clients, this requires OpenVPN 2.6 clients or later
+    because the client needs to resend its client key on completing the hand
+    shake. The tls-crypt-v2 option allows controlling if older clients are
+    accepted.
+
+    By default the rate of initial packet responses is limited to 100 per 10s
+    interval to avoid OpenVPN servers being abused in reflection attacks
+    (see ``--connect-freq-initial``).
+
+Data channel offloading with ovpn-dco
+    2.6.0+ implements support for data-channel offloading where the data packets
+    are directly processed and forwarded in kernel space thanks to the ovpn-dco
+    kernel module. The userspace openvpn program acts purely as a control plane
+    application. Note that DCO will use DATA_V2 packets in P2P mode, therefore,
+    this implies that peers must be running 2.6.0+ in order to have P2P-NCP
+    which brings DATA_V2 packet support.
+
+Session timeout
+    It is now possible to terminate a session (or all) after a specified amount
+    of seconds has passed session commencement. This behaviour can be configured
+    using ``--session-timeout``. This option can be configured on the server, on
+    the client or can also be pushed.
+
+Inline auth username and password
+    Username and password can now be specified inline in the configuration file
+    within the <auth-user-pass></auth-user-pass> tags. If the password is
+    missing OpenVPN will prompt for input via stdin. This applies to inline'd
+    http-proxy-user-pass too.
+
+Tun MTU can be pushed
+    The  client can now also dynamically configure its MTU and the server
+    will try to push the client MTU when the client supports it. The
+    directive ``--tun-mtu-max`` has been introduced to increase the maximum
+    pushable MTU size (defaults to 1600).
+
+Improved control channel packet size control (``max-packet-size``)
+    The size of control channel is no longer tied to
+    ``--link-mtu``/``--tun-mtu`` and can be set using ``--max-packet-size``.
+    Sending large control channel frames is also optimised by allowing 6
+    outstanding packets instead of just 4. ``max-packet-size`` will also set
+    ``mssfix`` to try to limit data-channel packets as well.
+
 Deprecated features
 -------------------
 ``inetd`` has been removed
     This was a very limited and not-well-tested way to run OpenVPN, on TCP
     and TAP mode only.
+
+``verify-hash`` has been deprecated
+    This option has very limited usefulness and should be replaced by either
+    a better ``--ca`` configuration or with a ``--tls-verify`` script.
+
+``secret`` has been deprecated
+    static key mode (non-TLS) is no longer considered "good and secure enough"
+    for today's requirements.  Use TLS mode instead.  If deploying a PKI CA
+    is considered "too complicated", using ``--peer-fingerprint`` makes
+    TLS mode about as easy as using ``--secret``.
+
+``ncp-disable`` has been removed
+    This option mainly served a role as debug option when NCP was first
+    introduced. It should now no longer be necessary.
+
+TLS 1.0 and 1.1 are deprecated
+    ``tls-version-min`` is set to 1.2 by default.  OpenVPN 2.6.0 defaults
+    to a minimum TLS version of 1.2 as TLS 1.0 and 1.1 should be generally
+    avoided. Note that OpenVPN versions older than 2.3.7 use TLS 1.0 only.
+
+``--cipher`` argument is no longer appended to ``--data-ciphers``
+    by default. Data cipher negotiation has been introduced in 2.4.0
+    and been significantly improved in 2.5.0. The implicit fallback
+    to the cipher specified in ``--cipher`` has been removed.
+    Effectively, ``--cipher`` is a no-op in TLS mode now, and will
+    only have an effect in pre-shared-key mode (``--secret``).
+    From now on ``--cipher`` should not be used in new configurations
+    for TLS mode.
+    Should backwards compatibility with older OpenVPN peers be
+    required, please see the ``--compat-mode`` instead.
+
+``--prng`` has beeen removed
+    OpenVPN used to implement its own PRNG based on a hash. However implementing
+    a PRNG is better left to a crypto library. So we use the PRNG
+    mbed TLS or OpenSSL now.
+
+``--keysize`` has been removed
+    The ``--keysize`` option was only useful to change the key length when using the
+    BF, CAST6 or RC2 ciphers. For all other ciphers the key size is fixed with the
+    chosen cipher. As OpenVPN v2.6 no longer supports any of these variable length
+    ciphers, this option was removed as well to avoid confusion.
+
+Compression no longer enabled by default
+    Unless an explicit compression option is specified in the configuration,
+    ``--allow-compression`` defaults to ``no`` in OpeNVPN 2.6.0.
+    By default, OpenVPN 2.5 still allowed a server to enable compression by
+    pushing compression related options.
+
+PF (Packet Filtering) support has been removed
+   The built-in PF functionality has been removed from the code base. This
+   feature wasn't really easy to use and was long unmaintained.
+   This implies that also ``--management-client-pf`` and any other compile
+   time or run time related option do not exist any longer.
+
+Option conflict checking is being deprecated and phased out
+    The static option checking (OCC) is no longer useful in typical setups
+    that negotiate most connection parameters. The ``--opt-verify`` and
+    ``--occ-disable`` options are deprecated, and the configure option
+    ``--enable-strict-options`` has been removed. Logging of mismatched
+    options has been moved to debug logging (verb 7).
+
+User-visible Changes
+--------------------
+- CHACHA20-POLY1305 is included in the default of ``--data-ciphers`` when available.
+- Option ``--prng`` is ignored as we rely on the SSL library random number generator.
+- Option ``--nobind`` is default when ``--client`` or ``--pull`` is used in the configuration
+- :code:`link_mtu` parameter is removed from environment or replaced with 0 when scripts are
+  called with parameters. This parameter is unreliable and no longer internally calculated.
+
+- control channel packet maximum size is no longer influenced by
+  ``--link-mtu``/``--tun-mtu`` and must be set by ``--max-packet-size`` now.
+  The default is 1250 for the control channel size.
+
+- In point-to-point OpenVPN setups (no ``--server``), using
+  ``--explict-exit-notiy`` on one end would terminate the other side at
+  session end.  This is considered a no longer useful default and has
+  been changed to "restart on reception of explicit-exit-notify message".
+  If the old behaviour is still desired, ``--remap-usr1 SIGTERM`` can be used.
+
+- FreeBSD tun interfaces with ``--topology subnet`` are now put into real
+  subnet mode (IFF_BROADCAST instead of IFF_POINTOPOINT) - this might upset
+  software that enumerates interfaces, looking for "broadcast capable?" and
+  expecting certain results.  Normal uses should not see any difference.
+
+- The default configurations will no longer allow connections to OpenVPN 2.3.x
+  peer or earlier, use the new ``--compat-mode`` option if you need
+  compatibility with older versions. See the manual page on the
+  ``--compat-mode`` for details.
+
+Common errors with OpenSSL 3.0 and OpenVPN 2.6
+----------------------------------------------
+Both OpenVPN 2.6 and OpenSSL 3.0 tighten the security considerable, so some
+configuration will no longer work. This section will cover the most common
+causes and error message we have seen and explain their reason and temporary
+workarounds. You should fix the underlying problems as soon as possible since
+these workaround are not secure and will eventually stop working in a future
+update.
+
+- weak SHA1 or MD5 signature on certificates
+
+  This will happen on either loading of certificates or on connection
+  to a server::
+
+      OpenSSL: error:0A00018E:SSL routines::ca md too weak
+      Cannot load certificate file cert.crt
+      Exiting due to fatal error
+
+  OpenSSL 3.0 no longer allows weak signatures on certificates. You can
+  downgrade your security to allow them by using ``--tls-cert-profile insecure``
+  but should replace/regenerate these certificates as soon as possible.
+
+
+- 1024 bit RSA certificates, 1024 bit DH parameters, other weak keys
+
+  This happens if you use private keys or other cryptographic material that
+  does not meet today's cryptographic standards anymore. Messages are similar
+  to::
+
+      OpenSSL: error:0A00018F:SSL routines::ee key too small
+      OpenSSL: error:1408518A:SSL routines:ssl3_ctx_ctrl:dh key too small
+
+  DH parameters (``--dh``) can be regenerated with ``openssl dhparam 2048``.
+  For other cryptographic keys, these keys and certificates need to be
+  regenerated. TLS Security level can be temporarily lowered with
+  ``--tls-cert-profile legacy`` or even ``--tls-cert-profile insecure``.
+
+- Connecting to a OpenVPN 2.3.x server or allowing OpenVPN 2.3.x or earlier
+  clients
+
+  This will normally result in messages like::
+
+     OPTIONS ERROR: failed to negotiate cipher with server.  Add the server's cipher ('AES-128-CBC') to --data-ciphers (currently 'AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305') if you want to connect to this server.
+
+     or
+
+     client/127.0.0.1:49954 SENT CONTROL [client]: 'AUTH_FAILED,Data channel cipher negotiation failed (no shared cipher)' (status=1)
+
+  You can manually add the missing cipher to the ``--data-ciphers``. The
+  standard ciphers should be included as well, e.g.
+  ``--data-ciphers AES-256-GCM:AES-128-GCM:?Chacha20-Poly1305:?AES-128-CBC``.
+  You can also use the ``--compat-mode`` option. Note that these message may
+  also indicate other cipher configuration problems. See the data channel
+  cipher negotiation manual section for more details. (Available online under
+  https://github.com/OpenVPN/openvpn/blob/master/doc/man-sections/cipher-negotiation.rst)
+
+- Use of a legacy or deprecated cipher (e.g. 64bit block ciphers)
+
+  OpenSSL 3.0 no longer supports a number of insecure and outdated ciphers in
+  its default configuration. Some of these ciphers are known to be vulnerable (SWEET32 attack).
+
+  This will typically manifest itself in messages like::
+
+      OpenSSL: error:0308010C:digital envelope routines::unsupported
+      Cipher algorithm 'BF-CBC' not found
+      Unsupported cipher in --data-ciphers: BF-CBC
+
+  If your OpenSSL distribution comes with the legacy provider (see
+  also ``man OSSL_PROVIDER-legacy``), you can load it with
+  ``--providers legacy default``.  This will re-enable the old algorithms.
+
+- OpenVPN version not supporting TLS 1.2 or later
+
+  The default in OpenVPN 2.6 and also in many distributions is now TLS 1.2 or
+  later. Connecting to a peer that does not support this will results in
+  messages like::
+
+    TLS error: Unsupported protocol. This typically indicates that client and
+    server have no common TLS version enabled. This can be caused by mismatched
+    tls-version-min and tls-version-max options on client and server. If your
+    OpenVPN client is between v2.3.6 and v2.3.2 try adding tls-version-min 1.0
+    to the client configuration to use TLS 1.0+ instead of TLS 1.0 only
+    OpenSSL: error:0A000102:SSL routines::unsupported protocol
+
+  This can be an OpenVPN 2.3.6 or earlier version. ``compat-version 2.3.0`` will
+  enable TLS 1.0 support if supported by the OpenSSL distribution. Note that
+  on some Linux distributions enabling TLS 1.1 or 1.0 is not possible.
+
 
 
 Overview of changes in 2.5

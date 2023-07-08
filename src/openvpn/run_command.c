@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2017 OpenVPN Technologies, Inc. <sales@openvpn.net>
+ *  Copyright (C) 2002-2023 OpenVPN Technologies, Inc. <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -233,11 +233,11 @@ openvpn_popen(const struct argv *a,  const struct env_set *es)
 {
     struct gc_arena gc = gc_new();
     int ret = -1;
-    static bool warn_shown = false;
 
     if (a && a->argv[0])
     {
 #if defined(ENABLE_FEATURE_EXECVE)
+        static bool warn_shown = false;
         if (script_security() >= SSEC_BUILT_IN)
         {
             const char *cmd = a->argv[0];
@@ -252,7 +252,7 @@ openvpn_popen(const struct argv *a,  const struct env_set *es)
                 if (pid == (pid_t)0)       /* child side */
                 {
                     close(pipe_stdout[0]);         /* Close read end */
-                    dup2(pipe_stdout[1],1);
+                    dup2(pipe_stdout[1], 1);
                     execve(cmd, argv, envp);
                     exit(OPENVPN_EXECVE_FAILURE);
                 }

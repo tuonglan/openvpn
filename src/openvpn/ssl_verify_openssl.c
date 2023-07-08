@@ -5,8 +5,8 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
- *  Copyright (C) 2010-2018 Fox Crypto B.V. <openvpn@fox-it.com>
+ *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -67,7 +67,7 @@ verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
     cert_hash_remember(session, X509_STORE_CTX_get_error_depth(ctx), &cert_hash);
 
     /* did peer present cert which was signed by our root cert? */
-    if (!preverify_ok)
+    if (!preverify_ok && !session->opt->verify_hash_no_ca)
     {
         /* get the X509 name */
         char *subject = x509_get_subject(current_cert, &gc);
@@ -262,7 +262,7 @@ backend_x509_get_username(char *common_name, int cn_len,
                           char *x509_username_field, X509 *peer_cert)
 {
 #ifdef ENABLE_X509ALTUSERNAME
-    if (strncmp("ext:",x509_username_field,4) == 0)
+    if (strncmp("ext:", x509_username_field, 4) == 0)
     {
         if (!extract_x509_extension(peer_cert, x509_username_field+4, common_name, cn_len))
         {
@@ -285,7 +285,7 @@ backend_x509_get_username(char *common_name, int cn_len,
         gc_free(&gc);
     }
     else
-#endif
+#endif /* ifdef ENABLE_X509ALTUSERNAME */
     if (FAILURE == extract_x509_field_ssl(X509_get_subject_name(peer_cert),
                                           x509_username_field, common_name, cn_len))
     {

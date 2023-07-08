@@ -69,15 +69,34 @@ routing.
      dev tap4
      dev ovpn
 
-  When the device name starts with :code:`tun` or :code:`tap`, the device
-  type is extracted automatically.  Otherwise the ``--dev-type`` option
-  needs to be added as well.
+  What happens if the device name is not :code:`tun` or :code:`tap` is
+  platform dependent.
+
+  On most platforms, :code:`tunN` (e.g. tun2, tun30) and :code:`tapN`
+  (e.g. tap3) will create a numbered tun/tap interface with the number
+  specified - this is useful if multiple OpenVPN instances are active,
+  and the instance-to-device mapping needs to be known.  Some platforms
+  do not support "numbered tap", so trying ``--dev tap3`` will fail.
+
+  Arbitrary device names (e.g. ``--dev tun-home``) will only work on
+  FreeBSD (with the DCO kernel driver for ``tun`` devices) and Linux
+  (for both ``tun`` and ``tap`` devices, DCO and tun/tap driver).
+
+  If such a device name starts with ``tun`` or ``tap`` (e.g. ``tun-home``),
+  OpenVPN will choose the right device type automatically.  Otherwise the
+  desired device type needs to be specified with ``--dev-type tun`` or
+  ``--dev-type tap``.
+
+  On Windows, only the names :code:`tun` and :code:`tap` are supported.
+  Selection among multiple installed drivers or driver instances is done
+  with ``--dev-node`` and ``--windows-driver``.
 
 --dev-node node
-  Explicitly set the device node rather than using :code:`/dev/net/tun`,
-  :code:`/dev/tun`, :code:`/dev/tap`, etc. If OpenVPN cannot figure out
-  whether ``node`` is a TUN or TAP device based on the name, you should
-  also specify ``--dev-type tun`` or ``--dev-type tap``.
+  This is a highly system dependent option to influence tun/tap driver
+  selection.
+
+  On Linux, tun/tap devices are created by accessing :code:`/dev/net/tun`,
+  and this device name can be changed using ``--dev-node ...``.
 
   Under Mac OS X this option can be used to specify the default tun
   implementation. Using ``--dev-node utun`` forces usage of the native
@@ -93,6 +112,11 @@ routing.
   both the network connections control panel name and the GUID for each
   TAP-Win32 adapter.
 
+  On other platforms, ``--dev-node node`` will influence the naming of the
+  created tun/tap device, if supported on that platform.  If OpenVPN cannot
+  figure out whether ``node`` is a TUN or TAP device based on the name,
+  you should also specify ``--dev-type tun`` or ``--dev-type tap``.
+
 --dev-type device-type
   Which device type are we using? ``device-type`` should be :code:`tun`
   (OSI Layer 3) or :code:`tap` (OSI Layer 2). Use this option only if
@@ -107,7 +131,7 @@ routing.
   ``OpenVPN for Android`` client also handles them internally.
 
   On all other platforms these options are only saved in the client's
-  environment under the name :code:`foreign_options_{n}` before the
+  environment under the name :code:`foreign_option_{n}` before the
   ``--up`` script is called. A plugin or an ``--up`` script must be used to
   pick up and interpret these as required. Many Linux distributions include
   such scripts and some third-party user interfaces such as tunnelblick also
@@ -182,6 +206,12 @@ routing.
 
   :code:`DISABLE-NBT`
         Disable Netbios-over-TCP/IP.
+
+  :code: `PROXY_HTTP` ``host`` ``port``
+        Sets a HTTP proxy that should be used when connected to the VPN.
+
+        This option currently only works on OpenVPN for Android and requires
+        Android 10 or later.
 
 --ifconfig args
   Set TUN/TAP adapter parameters. It requires the *IP address* of the local
@@ -469,7 +499,7 @@ routing.
     Use a point-to-point topology, by allocating one /30 subnet
     per client. This is designed to allow point-to-point semantics when some
     or all of the connecting clients might be Windows systems. This is the
-    default on OpenVPN 2.0.
+    default.
 
   :code:`p2p`
     Use a point-to-point topology where the remote endpoint of
@@ -483,21 +513,29 @@ routing.
     configuring the tun interface with a local IP address and subnet mask,
     similar to the topology used in ``--dev tap`` and ethernet bridging
     mode. This mode allocates a single IP address per connecting client and
-    works on Windows as well. Only available when server and clients are
-    OpenVPN 2.1 or higher, or OpenVPN 2.0.x which has been manually patched
-    with the ``--topology`` directive code. When used on Windows, requires
-    version 8.2 or higher of the TAP-Win32 driver. When used on \*nix,
-    requires that the tun driver supports an ``ifconfig``\(8) command which
-    sets a subnet instead of a remote endpoint IP address.
+    works on Windows as well.
 
   *Note:* Using ``--topology subnet`` changes the interpretation of the
   arguments of ``--ifconfig`` to mean "address netmask", no longer "local
   remote".
 
---tun-mtu n
-  Take the TUN device MTU to be **n** and derive the link MTU from it
-  (default :code:`1500`). In most cases, you will probably want to leave
-  this parameter set to its default value.
+--tun-mtu args
+
+  Valid syntaxes:
+  ::
+
+      tun-mtu tun-mtu
+      tun-mtu tun-mtu occ-mtu
+
+  Take the TUN device MTU to be ``tun-mtu`` and derive the link MTU from it.
+  In most cases, you will probably want to leave this parameter set to
+  its default value.
+
+  The default for :code:`tun-mtu` is 1500.
+
+  The OCC MTU can be used to avoid warnings about mismatched MTU from
+  clients. If :code:`occ-mtu` is not specified, it will to default to the
+  tun-mtu.
 
   The MTU (Maximum Transmission Units) is the maximum datagram size in
   bytes that can be sent unfragmented over a particular network path.
@@ -509,6 +547,16 @@ routing.
 
   It's best to use the ``--fragment`` and/or ``--mssfix`` options to deal
   with MTU sizing issues.
+
+  Note: Depending on the platform, the operating system allows to receive
+  packets larger than ``tun-mtu`` (e.g. Linux and FreeBSD) but other platforms
+  (like macOS) limit received packets to the same size as the MTU.
+
+--tun-max-mtu maxmtu
+  This configures the maximum MTU size that a server can push to ``maxmtu``,
+  by configuring the internal buffers to allow at least this packet size.
+  The default for ``maxmtu`` is 1600. Currently, only increasing beyond 1600
+  is possible, and attempting to reduce max-mtu below 1600 will be ignored.
 
 --tun-mtu-extra n
   Assume that the TUN/TAP device might return as many as ``n`` bytes more

@@ -5,8 +5,8 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
- *  Copyright (C) 2010-2018 Fox Crypto B.V. <openvpn@fox-it.com>
+ *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2010-2021 Fox Crypto B.V. <openvpn@foxcrypto.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -69,14 +69,13 @@ enum tls_auth_status
 {
     TLS_AUTHENTICATION_SUCCEEDED=0,
     TLS_AUTHENTICATION_FAILED=1,
-    TLS_AUTHENTICATION_DEFERRED=2,
-    TLS_AUTHENTICATION_UNDEFINED=3
+    TLS_AUTHENTICATION_DEFERRED=2
 };
 
 /**
  * Return current session authentication state of the tls_multi structure
  * This will return TLS_AUTHENTICATION_SUCCEEDED only if the session is
- * fully authenicated, i.e. VPN traffic is allowed over it.
+ * fully authenticated, i.e. VPN traffic is allowed over it.
  *
  * Checks the status of all active keys and checks if the deferred
  * authentication has succeeded.
@@ -85,15 +84,12 @@ enum tls_auth_status
  * from KS_AUTH_DEFERRED to KS_AUTH_FALSE/KS_AUTH_TRUE if the deferred
  * authentication has succeeded after last call.
  *
- * @param   latency     if not null,  return TLS_AUTHENTICATION_UNDEFINED if
- *                      the last call for this multi struct has been less
- *                      than latency seconds ago
  * @param   multi       the tls_multi struct to operate on
  *
  * @return              Current authentication status of the tls_multi
  */
 enum tls_auth_status
-tls_authentication_status(struct tls_multi *multi, const int latency);
+tls_authentication_status(struct tls_multi *multi);
 
 /** Check whether the \a ks \c key_state has finished the key exchange part
  *  of the OpenVPN hand shake. This is that the key_method_2read/write
@@ -113,11 +109,12 @@ tls_authentication_status(struct tls_multi *multi, const int latency);
 #define TLS_AUTHENTICATED(multi, ks) ((ks)->state >= (S_GOT_KEY - (multi)->opt.server))
 
 /**
- * Remove the given key state's auth control file, if it exists.
+ * Remove the given key state's auth deferred status auth control file,
+ * if it exists.
  *
- * @param ks    The key state the remove the file for
+ * @param ads    The key state the remove the file for
  */
-void key_state_rm_auth_control_file(struct key_state *ks);
+void key_state_rm_auth_control_files(struct auth_deferred_status *ads);
 
 /**
  * Frees the given set of certificate hashes.
@@ -164,35 +161,6 @@ const char *tls_username(const struct tls_multi *multi, const bool null);
  */
 bool cert_hash_compare(const struct cert_hash_set *chs1, const struct cert_hash_set *chs2);
 
-#ifdef ENABLE_PF
-
-/**
- * Retrieve the given tunnel's common name and its hash value.
- *
- * @param multi         The tunnel to use
- * @param cn            Common name's string
- * @param cn_hash       Common name's hash value
- *
- * @return true if the common name was set, false otherwise.
- */
-static inline bool
-tls_common_name_hash(const struct tls_multi *multi, const char **cn, uint32_t *cn_hash)
-{
-    if (multi)
-    {
-        const struct tls_session *s = &multi->session[TM_ACTIVE];
-        if (s->common_name && s->common_name[0] != '\0')
-        {
-            *cn = s->common_name;
-            *cn_hash = s->common_name_hashval;
-            return true;
-        }
-    }
-    return false;
-}
-
-#endif
-
 /**
  * Verify the given username and password, using either an external script, a
  * plugin, or the management interface.
@@ -208,6 +176,29 @@ tls_common_name_hash(const struct tls_multi *multi, const char **cn, uint32_t *c
  */
 void verify_user_pass(struct user_pass *up, struct tls_multi *multi,
                       struct tls_session *session);
+
+
+
+/**
+ * Runs the --client-crresponse script if one is defined.
+ *
+ * As with the management interface the script is stateless in the sense that
+ * it does not directly participate in the authentication but rather should set
+ * the files for the deferred auth like the management commands.
+ *
+ */
+void
+verify_crresponse_script(struct tls_multi *multi, const char *cr_response);
+
+/**
+ * Call the plugin OPENVPN_PLUGIN_CLIENT_CRRESPONSE.
+ *
+ * As with the management interface calling the plugin is stateless in the sense
+ * that it does not directly participate in the authentication but rather
+ * should set the files for the deferred auth like the management commands.
+ */
+void
+verify_crresponse_plugin(struct tls_multi *multi, const char *cr_response);
 
 /**
  * Perform final authentication checks, including locking of the cn, the allowed

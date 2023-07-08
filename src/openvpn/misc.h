@@ -5,7 +5,7 @@
  *             packet encryption, packet authentication, and
  *             packet compression.
  *
- *  Copyright (C) 2002-2018 OpenVPN Inc <sales@openvpn.net>
+ *  Copyright (C) 2002-2023 OpenVPN Inc <sales@openvpn.net>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2
@@ -56,6 +56,9 @@ const char *hostname_randomize(const char *hostname, struct gc_arena *gc);
 struct user_pass
 {
     bool defined;
+    /* For auth-token username and token can be set individually, so we
+     * use this second bool to track if the token (password) is defined */
+    bool token_defined;
     bool nocache;
 
 /* max length of username/password */
@@ -64,6 +67,7 @@ struct user_pass
 #else
 #define USER_PASS_LEN 128
 #endif
+    /* Note that username and password are expected to be null-terminated */
     char username[USER_PASS_LEN];
     char password[USER_PASS_LEN];
 };
@@ -138,18 +142,30 @@ void fail_user_pass(const char *prefix,
 void purge_user_pass(struct user_pass *up, const bool force);
 
 /**
- * Sets the auth-token to token if a username is available from either
- * up or already present in tk. The method will also purge up if
+ * Sets the auth-token to token. If a username is available from
+ * either up or already present in tk that will be used as default
+ * username for the token. The method will also purge up if
  * the auth-nocache option is active.
  *
  * @param up        (non Auth-token) Username/password
  * @param tk        auth-token userpass to set
- * @param token     token to use as password for the
+ * @param token     token to use as password for the auth-token
  *
  * @note    all parameters to this function must not be null.
  */
 void set_auth_token(struct user_pass *up, struct user_pass *tk,
                     const char *token);
+
+/**
+ * Sets the auth-token username by base64 decoding the passed
+ * username
+ *
+ * @param tk        auth-token userpass to set
+ * @param username  base64 encoded username to set
+ *
+ * @note    all parameters to this function must not be null.
+ */
+void set_auth_token_user(struct user_pass *tk, const char *username);
 
 /*
  * Process string received by untrusted peer before
@@ -189,5 +205,20 @@ void output_peer_info_env(struct env_set *es, const char *peer_info);
  */
 int
 get_num_elements(const char *string, char delimiter);
+
+/**
+ * Prepend a directory to a path.
+ */
+struct buffer
+prepend_dir(const char *dir, const char *path, struct gc_arena *gc);
+
+#define _STRINGIFY(S) #S
+/* *INDENT-OFF* - uncrustify need to ignore this macro */
+#define MAC_FMT _STRINGIFY(%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx)
+/* *INDENT-ON* */
+#define MAC_PRINT_ARG(_mac) _mac[0], _mac[1], _mac[2],  \
+    _mac[3], _mac[4], _mac[5]
+#define MAC_SCAN_ARG(_mac) &_mac[0], &_mac[1], &_mac[2], \
+    &_mac[3], &_mac[4], &_mac[5]
 
 #endif /* ifndef MISC_H */

@@ -271,7 +271,8 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
   man-in-the-middle attack where an authorized client attempts to connect
   to another client by impersonating the server. The attack is easily
   prevented by having clients verify the server certificate using any one
-  of ``--remote-cert-tls``, ``--verify-x509-name``, or ``--tls-verify``.
+  of ``--remote-cert-tls``, ``--verify-x509-name``, ``--peer-fingerprint``
+  or ``--tls-verify``.
 
 --tls-auth args
   Add an additional layer of HMAC authentication on top of the TLS control
@@ -372,6 +373,9 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
 
   The following profiles are supported:
 
+  :code:`insecure`
+      Identical for mbed TLS to `legacy`
+
   :code:`legacy` (default)
       SHA1 and newer, RSA 2048-bit+, any elliptic curve.
 
@@ -383,6 +387,9 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
 
   This option is only fully supported for mbed TLS builds. OpenSSL builds
   use the following approximation:
+
+  :code:`insecure`
+      sets "security level 0"
 
   :code:`legacy` (default)
       sets "security level 1"
@@ -479,6 +486,13 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
   8000 years'.
 
 --tls-crypt-v2 keyfile
+
+  Valid syntax::
+
+     tls-crypt-v2 keyfile
+     tls-crypt-v2 keyfile force-cookie
+     tls-crypt-v2 keyfile allow-noncookie
+
   Use client-specific tls-crypt keys.
 
   For clients, ``keyfile`` is a client-specific tls-crypt key. Such a key
@@ -493,6 +507,13 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
   ``--tls-crypt`` option. In that case, the server will detect whether the
   client is using client-specific keys, and automatically select the right
   mode.
+
+  The optional parameters :code:`force-cookie` allows only tls-crypt-v2
+  clients that support a cookie based stateless three way handshake that
+  avoids replay attacks and state exhaustion on the server side (OpenVPN
+  2.6 and later). The option :code:`allow-noncookie` explicitly allows
+  older tls-crypt-v2 clients. The default is (currently)
+  :code:`allow-noncookie`.
 
 --tls-crypt-v2-verify cmd
   Run command ``cmd`` to verify the metadata of the client-specific
@@ -544,8 +565,8 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
   them.
 
 --tls-version-min args
-  Sets the minimum TLS version we will accept from the peer (default is
-  "1.0").
+  Sets the minimum TLS version we will accept from the peer (default in
+  2.6.0 and later is "1.2").
 
   Valid syntax:
   ::
@@ -563,7 +584,7 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
   :code:`1.2`.
 
 --verify-hash args
-  Specify SHA1 or SHA256 fingerprint for level-1 cert.
+  **DEPRECATED** Specify SHA1 or SHA256 fingerprint for level-1 cert.
 
   Valid syntax:
   ::
@@ -581,6 +602,39 @@ certificates and keys: https://github.com/OpenVPN/easy-rsa
 
   The ``algo`` flag can be either :code:`SHA1` or :code:`SHA256`. If not
   provided, it defaults to :code:`SHA1`.
+
+  This option can also be inlined
+  ::
+
+    <verify-hash>
+    00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff
+    11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00
+    </verify-hash>
+
+If the option is inlined, ``algo`` is always :code:`SHA256`.
+
+--peer-fingerprint args
+   Specify a SHA256 fingerprint or list of SHA256 fingerprints to verify
+   the peer certificate against. The peer certificate must match one of the
+   fingerprint or certificate verification will fail. The option can also
+   be inlined
+
+  Valid syntax:
+  ::
+
+    peer-fingerprint AD:B0:95:D8:09:...
+
+  or inline:
+  ::
+
+    <peer-fingerprint>
+    00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff
+    11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00
+    </peer-fingerprint>
+
+  When the ``--peer-fingerprint`` option is used, specifying a CA with ``--ca`` or ``--capath`` is
+  optional. This allows the he ``--peer-fingerprint`` to be used as alternative to a PKI with
+  self-signed certificates for small setups. See the examples section for such a setup.
 
 --verify-x509-name args
   Accept connections only if a host's X.509 name is equal to **name.** The
